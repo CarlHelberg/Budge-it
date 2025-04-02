@@ -1,0 +1,155 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="mb-4">
+    <h1>{{ budget.name }} - Categories</h1>
+    <h5>Balance: ${{ "%.2f"|format(budget.balance) }}</h5>
+</div>
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'dashboard' %}active{% endif %}" href="{{ url_for('view_budget', budget_id=budget.id) }}">Dashboard</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'categories' %}active{% endif %}" href="{{ url_for('categories', budget_id=budget.id) }}">Categories</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'transactions' %}active{% endif %}" href="{{ url_for('transactions', budget_id=budget.id) }}">Transactions</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'future_expenses' %}active{% endif %}" href="{{ url_for('future_expenses', budget_id=budget.id) }}">Future Expenses</a>
+    </li>
+</ul>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Categories</h5>
+        <a href="{{ url_for('add_category', budget_id=budget.id) }}" class="btn btn-primary">Add Category</a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Budgeted Amount</th>
+                    <th>Available</th>
+                    <th>Spent</th>
+                    <th>Type</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for category in categories %}
+                <tr>
+                    <td>{{ category.name }}</td>
+                    <td>${{ "%.2f"|format(category.budgeted_amount) }}</td>
+                    <td>
+                        {% if category.available == category.budgeted_amount %}
+                        <span class="text-success">${{ "%.2f"|format(category.available) }}</span>
+                        {% elif category.available > 0 %}
+                        <span class="text-info">${{ "%.2f"|format(category.available) }}</span>
+                        {% else %}
+                        <span class="text-danger">${{ "%.2f"|format(category.available) }}</span>
+                        {% endif %}
+                    </td>
+                    <td>${{ "%.2f"|format(category.budgeted_amount - category.available) }}</td>
+                    <td>
+                        {% if category.is_future_expense %}
+                        <span class="badge bg-warning">Future Expense</span>
+                        {% elif category.is_transfer %}
+                        <span class="badge bg-success">Transfer</span>
+                        {% else %}
+                        <span class="badge bg-info">Regular</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('edit_category', category_id=category.id) }}" class="btn btn-outline-primary">Edit</a>
+                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteCategoryModal{{ category.id }}">Delete</button>
+                        </div>
+
+                        <!-- Delete Modal -->
+                        <div class="modal fade" id="deleteCategoryModal{{ category.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Confirm Delete</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Are you sure you want to delete the category "{{ category.name }}"?</p>
+                                        <p class="text-warning">Note: Any transactions associated with this category will be updated to have no category.</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <form action="{{ url_for('delete_category', category_id=category.id) }}" method="POST">
+                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">No categories defined yet</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Category Spending Summary</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Budget</th>
+                    <th>Spent</th>
+                    <th>Remaining</th>
+                    <th>Usage %</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for category in spending_summary %}
+                <tr>
+                    <td>{{ category.name }}</td>
+                    <td>${{ "%.2f"|format(category.budgeted_amount) }}</td>
+                    <td>${{ "%.2f"|format(category.spent) }}</td>
+                    <td>
+                        {% if category.remaining >= 0 %}
+                        <span class="text-success">${{ "%.2f"|format(category.remaining) }}</span>
+                        {% else %}
+                        <span class="text-danger">${{ "%.2f"|format(category.remaining) }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="progress">
+                            <div class="progress-bar bg-{{ 'danger' if category.percentage > 100 else 'success' if category.percentage < 75 else 'warning' }}"
+                                 role="progressbar"
+                                 style="width: {{ min(100, category.percentage) }}%"
+                                 aria-valuenow="{{ category.percentage }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">{{ "%.1f"|format(category.percentage) }}%</div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No spending data available</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

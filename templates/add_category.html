@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                {% if request.args.get('future') %}
+                Add Future Expense
+                {% else %}
+                Add Category
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+
+                    {% if not request.args.get('future') %}
+                    <div class="mb-3">
+                        <label for="budgeted_amount" class="form-label">Budgeted Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" class="form-control" id="budgeted_amount" name="budgeted_amount" value="0.00">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_future_expense" name="is_future_expense">
+                        <label class="form-check-label" for="is_future_expense">This is a future expense</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_transfer" name="is_transfer">
+                        <label class="form-check-label" for="is_transfer">Transfer Category</label>
+                    </div>
+
+                    <div id="future_expense_fields" style="display: none;">
+                        {% else %}
+                        <input type="hidden" name="is_future_expense" value="on">
+                        <div id="future_expense_fields">
+                            {% endif %}
+                            <div class="mb-3">
+                                <label for="target_date" class="form-label">Target Date</label>
+                                <input type="date" class="form-control" id="target_date" name="target_date">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="target_amount" class="form-label">Target Amount</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" id="target_amount" name="target_amount" value="0.00">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="monthly_recommendation" class="form-label">Monthly Saving Recommendation</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" id="monthly_recommendation" readonly>
+                                </div>
+                                <div class="form-text">This will be calculated based on the target amount and date.</div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <a href="{{ url_for('view_budget', budget_id=budget.id) }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    {% if not request.args.get('future') %}
+    document.getElementById('is_future_expense').addEventListener('change', function() {
+        const futureExpenseFields = document.getElementById('future_expense_fields');
+        if (this.checked) {
+            futureExpenseFields.style.display = 'block';
+        } else {
+            futureExpenseFields.style.display = 'none';
+        }
+    });
+    {% endif %}
+
+    // Calculate monthly recommendation
+    function calculateRecommendation() {
+        const targetAmount = parseFloat(document.getElementById('target_amount').value) || 0;
+        const targetDate = document.getElementById('target_date').value;
+
+        if (targetAmount && targetDate) {
+            fetch('{{ url_for("calculate_future_expense", budget_id=budget.id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'target_amount': targetAmount,
+                    'target_date': targetDate
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('monthly_recommendation').value = data.suggestion;
+            });
+        }
+    }
+
+    document.getElementById('target_amount').addEventListener('input', calculateRecommendation);
+    document.getElementById('target_date').addEventListener('change', calculateRecommendation);
+</script>
+{% endblock %}
